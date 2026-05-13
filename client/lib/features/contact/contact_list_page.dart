@@ -221,13 +221,19 @@ class _ContactListPageState extends ConsumerState<ContactListPage>
                                 try {
                                   final convId = await ref.read(apiClientProvider).getOrCreateSingleConversation(uid);
                                   if (context.mounted) {
-                                    context.go('/chat/$convId', extra: {
+                                    context.push('/chat/$convId', extra: {
                                       'name': nickname,
                                       'avatar_url': avatarUrl,
                                       'peer_uid': uid,
                                     });
                                   }
-                                } catch (_) {}
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('创建会话失败')),
+                                    );
+                                  }
+                                }
                                 break;
                               case 'delete':
                                 _confirmDelete(context, uid);
@@ -297,11 +303,8 @@ class _ContactListPageState extends ConsumerState<ContactListPage>
                 ),
                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
                 onTap: () {
-                  context.go('/chat/${g['conversation_id']}', extra: {
+                  context.push('/group/${g['conversation_id']}', extra: {
                     'name': name,
-                    'avatar_url': g['avatar_url'] ?? '',
-                    'peer_uid': g['peer_uid'] ?? 0,
-                    'chat_type': 1,
                   });
                 },
               );

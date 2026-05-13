@@ -36,6 +36,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       setState(() => _results = results);
     } catch (_) {
       _results = [];
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('搜索失败，请重试')),
+        );
+      }
     } finally {
       setState(() => _loading = false);
     }
@@ -93,7 +98,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       onTap: () {
                         final convId = r['conversation_id'];
                         if (convId != null) {
-                          context.go('/chat/$convId', extra: {
+                          context.push('/chat/$convId', extra: {
                             'name': senderName,
                             'avatar_url': '',
                           });

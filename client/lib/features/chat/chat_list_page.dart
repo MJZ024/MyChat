@@ -162,7 +162,7 @@ class _ChatList extends ConsumerWidget {
                 isGroup: type == 2,
                 isPinned: c['pinned'] == true,
                 onTap: () {
-                  context.go('/chat/${c['conversation_id']}', extra: {
+                  context.push('/chat/${c['conversation_id']}', extra: {
                     'name': name,
                     'avatar_url': c['avatar_url'] ?? '',
                     'peer_uid': c['peer_uid'] ?? 0,
@@ -299,7 +299,7 @@ class _ProfileSection extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.person),
           title: const Text('个人信息'),
-          onTap: () => context.go('/profile'),
+          onTap: () => context.push('/profile'),
         ),
         ListTile(
           leading: const Icon(Icons.settings),

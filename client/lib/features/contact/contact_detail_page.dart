@@ -38,7 +38,13 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
     try {
       final data = await ref.read(apiClientProvider).getUserPublic(widget.uid);
       if (mounted) setState(() => _bio = data['bio'] ?? '');
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载用户信息失败')),
+        );
+      }
+    }
   }
 
   @override
@@ -108,13 +114,19 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
                             .read(apiClientProvider)
                             .getOrCreateSingleConversation(widget.uid);
                         if (context.mounted) {
-                          context.go('/chat/$convId', extra: {
+                          context.push('/chat/$convId', extra: {
                             'name': widget.nickname,
                             'avatar_url': widget.avatarUrl,
                             'peer_uid': widget.uid,
                           });
                         }
-                      } catch (_) {}
+                      } catch (_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('创建会话失败')),
+                          );
+                        }
+                      }
                     },
                   ),
                   const Divider(),
@@ -170,7 +182,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
               ref.invalidate(contactsProvider);
               ref.invalidate(conversationsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) context.go('/chat');
+              if (context.mounted) context.pop();
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('删除'),

@@ -46,7 +46,9 @@ class WsClient {
             try {
               final msg = jsonDecode(data) as Map<String, dynamic>;
               _messageController.add(msg);
-            } catch (_) {}
+            } catch (_) {
+              debugPrint('[ws_client] JSON 解析失败: $data');
+            }
           }
         },
         onError: (error) {

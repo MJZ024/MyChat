@@ -97,7 +97,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       final msgs = await ref.read(apiClientProvider).getMessages(widget.conversationId);
       final loaded = msgs.map((m) => m as Map<String, dynamic>).toList();
       ref.read(messagesProvider.notifier).state = loaded;
-    } catch (_) {}
+    } catch (_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载历史消息失败')),
+        );
+      });
+    }
   }
 
   void _markRead() {
@@ -351,7 +357,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/chat'),
+          onPressed: () => context.pop(),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

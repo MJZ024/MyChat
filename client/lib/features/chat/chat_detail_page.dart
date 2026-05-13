@@ -44,7 +44,12 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
         _loaded = true;
       });
     } catch (_) {
-      if (mounted) setState(() => _loaded = true);
+      if (mounted) {
+        setState(() => _loaded = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载会话状态失败')),
+        );
+      }
     }
   }
 
@@ -190,7 +195,14 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
         setState(() => _pinned = pinned);
         ref.invalidate(conversationsProvider);
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        setState(() => _pinned = !_pinned);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('操作失败，请重试')),
+        );
+      }
+    }
   }
 
   void _confirmClearChat() {

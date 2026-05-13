@@ -19,6 +19,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   final _nicknameCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
   bool _loading = false;
+  bool _loaded = false;
   String _avatarUrl = '';
   String? _localAvatarPath;
 
@@ -40,10 +41,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       final data = await ref.read(apiClientProvider).getProfile();
       _nicknameCtrl.text = data['nickname'] ?? '';
       _bioCtrl.text = data['bio'] ?? '';
-      setState(() {
+      if (mounted) setState(() {
         _avatarUrl = data['avatar_url'] ?? '';
+        _loaded = true;
       });
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
   }
 
   Future<void> _pickAndUploadAvatar() async {
@@ -110,7 +114,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('保存成功')),
         );
-        context.go('/chat');
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -129,7 +133,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/chat'),
+          onPressed: () => context.pop(),
         ),
         title: const Text('个人信息'),
         actions: [
@@ -145,75 +149,77 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: _loading ? null : _pickAndUploadAvatar,
-              child: Stack(
+      body: _loaded
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: const Color(0xFF07C160),
-                    backgroundImage: _buildAvatarImage(),
-                    child: (_localAvatarPath == null && _avatarUrl.isEmpty)
-                        ? const Icon(Icons.camera_alt, color: Colors.white, size: 32)
-                        : null,
-                  ),
-                  if (_loading)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.black26,
-                          shape: BoxShape.circle,
+                  const SizedBox(height: 16),
+                  GestureDetector(
+                    onTap: _loading ? null : _pickAndUploadAvatar,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 48,
+                          backgroundColor: const Color(0xFF07C160),
+                          backgroundImage: _buildAvatarImage(),
+                          child: (_localAvatarPath == null && _avatarUrl.isEmpty)
+                              ? const Icon(Icons.camera_alt, color: Colors.white, size: 32)
+                              : null,
                         ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        if (_loading)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Colors.black26,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF07C160),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF07C160),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _nicknameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '昵称',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _bioCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: '个性签名',
+                      border: OutlineInputBorder(),
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 32),
-            TextField(
-              controller: _nicknameCtrl,
-              decoration: const InputDecoration(
-                labelText: '昵称',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _bioCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: '个性签名',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-      ),
+            )
+          : const Center(child: CircularProgressIndicator()),
     );
   }
 }
