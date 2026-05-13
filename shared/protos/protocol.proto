@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package protocol;
+
+option go_package = "github.com/mychat/server/pkg/protocol";
+
+// Envelope 消息信封 - 所有 WS 消息的外层包装
+message Envelope {
+  int64 seq = 1;
+  MessageType type = 2;
+  bytes payload = 3;
+  int64 timestamp = 4;
+}
+
+enum MessageType {
+  HANDSHAKE = 0;
+  HANDSHAKE_ACK = 1;
+  HEARTBEAT = 2;
+  HEARTBEAT_ACK = 3;
+  ACK = 4;
+
+  SEND_MESSAGE = 10;
+  RECV_MESSAGE = 11;
+  MESSAGE_READ = 12;
+  MESSAGE_RECALL = 13;
+  TYPING = 14;
+
+  SYNC_REQUEST = 20;
+  SYNC_RESPONSE = 21;
+
+  FRIEND_REQUEST = 30;
+  FRIEND_ACCEPT = 31;
+  GROUP_INVITE = 32;
+}
+
+// HandshakeRequest 握手认证
+message HandshakeRequest {
+  string token = 1;
+  string device_id = 2;
+  string platform = 3; // android / windows
+}
+
+// HandshakeAckResponse 握手响应
+message HandshakeAckResponse {
+  int64 uid = 1;
+  int64 last_seq = 2;
+}
+
+// ChatMessage 聊天消息
+message ChatMessage {
+  string msg_id = 1;
+  int64 from_uid = 2;
+  string to_id = 3;
+  ChatType chat_type = 4;
+  ContentType content_type = 5;
+  string content = 6;
+  string reply_to = 7;
+  int64 created_at = 8;
+}
+
+// SendMessageRequest 发送消息请求
+message SendMessageRequest {
+  string to_id = 1;
+  ChatType chat_type = 2;
+  ContentType content_type = 3;
+  string content = 4;
+  string reply_to = 5;
+}
+
+// SyncRequest 离线同步请求
+message SyncRequest {
+  int64 last_seq = 1;
+  int32 limit = 2;
+}
+
+// SyncResponse 离线同步响应
+message SyncResponse {
+  repeated ChatMessage messages = 1;
+  bool has_more = 2;
+}
+
+// AckRequest 确认收到
+message AckRequest {
+  int64 last_seq = 1;
+}
+
+// TypingRequest 输入中状态
+message TypingRequest {
+  string to_id = 1;
+  ChatType chat_type = 2;
+}
+
+// FriendRequestNotify 好友申请通知
+message FriendRequestNotify {
+  int64 from_uid = 1;
+  string from_nickname = 2;
+  string from_avatar = 3;
+  string message = 4;
+  int64 request_id = 5;
+}
+
+// MessageReadRequest 已读通知
+message MessageReadRequest {
+  string conversation_id = 1;
+  int64 last_read_seq = 2;
+}
+
+// MessageRecallRequest 撤回消息
+message MessageRecallRequest {
+  string msg_id = 1;
+}
+
+enum ChatType {
+  SINGLE = 0;
+  GROUP = 1;
+}
+
+enum ContentType {
+  TEXT = 0;
+  IMAGE = 1;
+  VOICE = 2;
+  FILE = 3;
+  VIDEO = 4;
+}

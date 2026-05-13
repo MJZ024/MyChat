@@ -1,0 +1,45 @@
+# Binaries
+server/bin/
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Build artifacts
+build/
+
+# Logs
+logs/
+
+# Environment
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keys (generated at runtime)
+server/configs/private.pem
+server/configs/public.pem
+
+# Real config (contains local passwords)
+server/configs/config.yaml
+
+# Local data (Hive, etc.)
+.mychat_data/
+*.hive
+*.lock
+
+# Playwright / MCP logs
+.playwright-mcp/
+
+# Server binary backup
+server/server.exe~
+
+# Uploaded files
+server/uploads/
+
+# Claude local settings
+.claude/
