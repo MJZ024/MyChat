@@ -7,10 +7,12 @@ import 'package:mychat/core/network/ws_client.dart';
 import 'package:mychat/features/chat/chat_list_page.dart';
 
 final contactsProvider = FutureProvider<List<dynamic>>((ref) {
+  ref.watch(authWatchProvider);
   return ref.watch(apiClientProvider).getContacts();
 });
 
 final pendingRequestsProvider = FutureProvider<List<dynamic>>((ref) {
+  ref.watch(authWatchProvider);
   return ref.watch(apiClientProvider).getPendingRequests();
 });
 

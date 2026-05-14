@@ -13,6 +13,7 @@ import 'package:mychat/features/group/create_group_page.dart';
 import 'package:mychat/features/group/group_detail_page.dart';
 import 'package:mychat/features/profile/profile_page.dart';
 import 'package:mychat/features/search/search_page.dart';
+import 'package:mychat/features/settings/settings_page.dart';
 
 final authBoxListener = AuthBoxNotifier();
 
@@ -111,6 +112,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfilePage(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsPage(),
       ),
       GoRoute(
         path: '/search',

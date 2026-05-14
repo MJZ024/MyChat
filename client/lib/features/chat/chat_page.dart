@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
@@ -7,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mychat/core/constants/api_constants.dart';
 import 'package:mychat/core/network/api_client.dart';
@@ -45,6 +46,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _isTyping = false;
   Timer? _typingTimer;
   bool _isOnline = false;
+  bool _loaded = false;
   StreamSubscription? _wsSubscription;
 
   @override
@@ -98,8 +100,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     try {
       final msgs = await ref.read(apiClientProvider).getMessages(widget.conversationId);
       final loaded = msgs.map((m) => m as Map<String, dynamic>).toList();
-      if (mounted) ref.read(messagesProvider.notifier).state = loaded;
+      if (mounted) {
+        ref.read(messagesProvider.notifier).state = loaded;
+        setState(() => _loaded = true);
+      }
     } catch (_) {
+      if (mounted) setState(() => _loaded = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('加载历史消息失败')),
@@ -402,63 +408,93 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (_isUploading)
-            const LinearProgressIndicator(backgroundColor: Color(0xFF07C160)),
-          Expanded(
-            child: messages.isEmpty
-                ? const Center(child: Text('暂无消息'))
-                : ListView.builder(
-                    controller: _scrollCtrl,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[messages.length - 1 - index];
-                      final isMe = msg['from_uid'] == currentUserId;
-                      final recalled = msg['recalled'] == true;
-                      return _MessageBubble(
-                        message: msg,
-                        isMe: isMe,
-                        recalled: recalled,
-                        isGroup: widget.chatType == 1,
-                        onLongPress: () => _showMessageActions(msg),
-                        onReplyTap: () {},
-                      );
-                    },
-                  ),
-          ),
-          if (_replyTo != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.grey[100],
-              child: Row(
-                children: [
-                  const Icon(Icons.reply, size: 16, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '回复: ${_replyTo!['content'] ?? ''}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _cancelReply,
-                    child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
+      body: ValueListenableBuilder(
+        valueListenable: Hive.box('settings').listenable(),
+        builder: (context, box, child) {
+          final uid = currentUserId;
+          final bgPath = box.get('${uid}_chat_bg_path', defaultValue: '') as String;
+          final fontSize = box.get('${uid}_font_size', defaultValue: 1) as int;
+          final clamped = fontSize >= 0 && fontSize <= 2 ? fontSize : 1;
+          final scale = [0.75, 1.0, 1.3][clamped];
+
+          final result = MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
             ),
-          _InputBar(
-            controller: _msgCtrl,
-            onSend: () => _sendMessage(),
-            onAttach: _showAttachMenu,
-            onChanged: _onTextChanged,
+            child: child!,
+          );
+
+          if (bgPath.isEmpty) return result;
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Image.file(File(bgPath), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+              ),
+              result,
+            ],
+          );
+        },
+        child: Column(
+            children: [
+            if (_isUploading)
+              const LinearProgressIndicator(backgroundColor: Color(0xFF07C160)),
+            Expanded(
+              child: !_loaded
+                  ? const Center(child: CircularProgressIndicator())
+                  : messages.isEmpty
+                      ? const Center(child: Text('暂无消息'))
+                      : ListView.builder(
+                      controller: _scrollCtrl,
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = messages[messages.length - 1 - index];
+                        final isMe = msg['from_uid'] == currentUserId;
+                        final recalled = msg['recalled'] == true;
+                        return _MessageBubble(
+                          message: msg,
+                          isMe: isMe,
+                          recalled: recalled,
+                          isGroup: widget.chatType == 1,
+                          onLongPress: () => _showMessageActions(msg),
+                          onReplyTap: () {},
+                        );
+                      },
+                    ),
+            ),
+            if (_replyTo != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: Colors.grey[100],
+                child: Row(
+                  children: [
+                    const Icon(Icons.reply, size: 16, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '回复: ${_replyTo!['content'] ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _cancelReply,
+                      child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            _InputBar(
+              controller: _msgCtrl,
+              onSend: () => _sendMessage(),
+              onAttach: _showAttachMenu,
+              onChanged: _onTextChanged,
+            ),
+            ],
           ),
-        ],
       ),
     );
   }

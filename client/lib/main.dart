@@ -18,5 +18,8 @@ void main() async {
   if (!Hive.isBoxOpen('auth')) {
     await Hive.openBox('auth');
   }
+  if (!Hive.isBoxOpen('settings')) {
+    await Hive.openBox('settings');
+  }
   runApp(const ProviderScope(child: MyApp()));
 }

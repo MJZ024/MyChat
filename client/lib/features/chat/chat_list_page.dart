@@ -8,7 +8,12 @@ import 'package:mychat/core/network/api_client.dart';
 import 'package:mychat/core/network/ws_client.dart';
 import 'package:mychat/features/contact/contact_list_page.dart';
 
+final authWatchProvider = StreamProvider((ref) {
+  return Hive.box('auth').watch();
+});
+
 final conversationsProvider = FutureProvider<List<dynamic>>((ref) {
+  ref.watch(authWatchProvider);
   return ref.watch(apiClientProvider).getConversations();
 });
 
@@ -304,7 +309,7 @@ class _ProfileSection extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.settings),
           title: const Text('设置'),
-          onTap: () {},
+          onTap: () => context.push('/settings'),
         ),
         ListTile(
           leading: const Icon(Icons.logout, color: Colors.red),
