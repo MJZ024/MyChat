@@ -94,11 +94,15 @@ func (s *Service) sendSingleMessage(senderUID int64, req *protocol.SendMessageRe
 		return nil, err
 	}
 
-	// Also send to sender's other devices
-	s.hub.SendToUser(senderUID, s.makeRecvEnvelope(msg))
+		// Also send to sender's other devices
+		s.hub.SendToUser(senderUID, s.makeRecvEnvelope(msg))
+		// Push to recipient in real-time
+		if toUID > 0 && toUID != senderUID {
+			s.hub.SendToUser(toUID, s.makeRecvEnvelope(msg))
+		}
 
-	return msg, nil
-}
+		return msg, nil
+		}
 
 func (s *Service) sendGroupMessage(senderUID int64, req *protocol.SendMessageRequest) (*protocol.ChatMessage, error) {
 	var convID int64
@@ -208,11 +212,14 @@ func (s *Service) storeAndBroadcast(senderUID, convID, toUID int64, req *protoco
 	return chatMsg, nil
 }
 
-func (s *Service) GetHistory(convID, lastSeq int64, limit int) ([]*protocol.ChatMessage, error) {
+func (s *Service) GetHistory(convID, lastSeq, minSeq int64, limit int) ([]*protocol.ChatMessage, error) {
 	var msgs []model.Message
 	query := s.db.Where("conversation_id = ? AND recalled = false", convID)
 	if lastSeq > 0 {
 		query = query.Where("seq < ?", lastSeq)
+	}
+	if minSeq > 0 {
+		query = query.Where("seq > ?", minSeq)
 	}
 	query = query.Order("seq DESC").Limit(limit)
 

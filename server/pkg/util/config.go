@@ -19,9 +19,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Host string `mapstructure:"host"`
-	Port int    `mapstructure:"port"`
-	Mode string `mapstructure:"mode"`
+	Host           string   `mapstructure:"host"`
+	Port           int      `mapstructure:"port"`
+	Mode           string   `mapstructure:"mode"`
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
 func (s ServerConfig) Addr() string {
@@ -103,6 +104,15 @@ type LogConfig struct {
 	Level    string `mapstructure:"level"`
 	Output   string `mapstructure:"output"`
 	FilePath string `mapstructure:"file_path"`
+}
+
+func IsOriginAllowed(allowedOrigins []string, origin string) bool {
+	for _, allowed := range allowedOrigins {
+		if allowed == "*" || allowed == origin {
+			return true
+		}
+	}
+	return false
 }
 
 func LoadConfig(path string) (*Config, error) {

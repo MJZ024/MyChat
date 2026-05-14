@@ -29,25 +29,18 @@ type JSONMessageHandler interface {
 	HandleJSONMessage(client *Client, msg *JSONIncomingMessage)
 }
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 // Hub 管理所有 WebSocket 连接
 type Hub struct {
-	mu          sync.RWMutex
-	clients     map[int64]map[*Client]bool // uid -> set of clients (multi-device)
-	register    chan *Client
-	unregister  chan *Client
-	broadcast   chan *BroadcastMessage
-	logger      *zap.Logger
-	wsCfg       util.WebSocketConfig
-	msgHandler  MessageHandler
-	jsonHandler JSONMessageHandler
+	mu             sync.RWMutex
+	clients        map[int64]map[*Client]bool // uid -> set of clients (multi-device)
+	register       chan *Client
+	unregister     chan *Client
+	broadcast      chan *BroadcastMessage
+	logger         *zap.Logger
+	wsCfg          util.WebSocketConfig
+	allowedOrigins []string
+	msgHandler     MessageHandler
+	jsonHandler    JSONMessageHandler
 	onStatusChange func(uid int64, online bool)
 }
 
@@ -70,15 +63,16 @@ type Client struct {
 	UID  int64
 }
 
-func NewHub(logger *zap.Logger, wsCfg util.WebSocketConfig, handler MessageHandler) *Hub {
+func NewHub(logger *zap.Logger, wsCfg util.WebSocketConfig, allowedOrigins []string, handler MessageHandler) *Hub {
 	return &Hub{
-		clients:    make(map[int64]map[*Client]bool),
-		register:   make(chan *Client, 64),
-		unregister: make(chan *Client, 64),
-		broadcast:  make(chan *BroadcastMessage, 256),
-		logger:     logger,
-		wsCfg:      wsCfg,
-		msgHandler: handler,
+		clients:        make(map[int64]map[*Client]bool),
+		register:       make(chan *Client, 64),
+		unregister:     make(chan *Client, 64),
+		broadcast:      make(chan *BroadcastMessage, 256),
+		logger:         logger,
+		wsCfg:          wsCfg,
+		allowedOrigins: allowedOrigins,
+		msgHandler:     handler,
 	}
 }
 
@@ -216,6 +210,16 @@ func (h *Hub) SendJSONToUsers(uids []int64, msg interface{}) {
 }
 
 func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request, uid int64) {
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			if len(h.allowedOrigins) == 0 {
+				return true
+			}
+			return util.IsOriginAllowed(h.allowedOrigins, r.Header.Get("Origin"))
+		},
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		h.logger.Error("websocket upgrade failed", zap.Error(err))
@@ -253,6 +257,9 @@ func (c *Client) readPump() {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				c.hub.logger.Error("websocket read error", zap.Error(err))
+			} else if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
+				c.hub.logger.Warn("pong timeout, closing dead connection",
+					zap.Int64("uid", c.UID))
 			}
 			break
 		}

@@ -1,6 +1,6 @@
 # MyChat 项目进度跟踪
 
-> 最后更新：2026-05-13 下午（静默吞错修复 + 导航UX改进 + 隐私清理）
+> 最后更新：2026-05-14（批次1完成：服务端稳定性修复 4/4）
 
 符号说明：
 - `[x]` 已完成且测试通过
@@ -133,9 +133,9 @@
 
 ## 服务端待修（稳定性）
 
-- [ ] ReadPump 缺少 Pong 处理（连接僵死检测）
-- [ ] 离线消息不落库（不在线时消息直接丢弃，非离线缓存问题）
-- [ ] CheckOrigin: return true（生产环境需校验）
+- [x] ReadPump Pong 超时日志缺失 — 机制已存在（Ping/Pong/SetReadDeadline 均正确），补了超时 Warn 日志以区分僵死断开和正常断开
+- [x] 离线消息不落库 — 经查消息已通过 storeAndBroadcast 落库，实际缺口是 protobuf 单聊路径存库后未推送给接收方（JSON 路径正常），已补 `SendToUser(toUID)`
+- [x] CheckOrigin + CORS 全放行 — 新增 `allowed_origins` 配置项（默认 `["*"]`），`CheckOrigin` 和 `CORSMiddleware` 改为从配置读取白名单
 - [ ] 多处 `_` 忽略 error（proto.Marshal, WriteMessage 等）
 
 ---

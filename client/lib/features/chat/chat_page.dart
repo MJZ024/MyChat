@@ -50,7 +50,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   void initState() {
     super.initState();
-    ref.read(messagesProvider.notifier).state = [];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(messagesProvider.notifier).state = [];
+    });
     _loadHistory();
     _markRead();
 
@@ -96,7 +98,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     try {
       final msgs = await ref.read(apiClientProvider).getMessages(widget.conversationId);
       final loaded = msgs.map((m) => m as Map<String, dynamic>).toList();
-      ref.read(messagesProvider.notifier).state = loaded;
+      if (mounted) ref.read(messagesProvider.notifier).state = loaded;
     } catch (_) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(

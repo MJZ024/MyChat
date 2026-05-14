@@ -91,6 +91,7 @@ type UserConversation struct {
 	UnreadCount    int        `gorm:"default:0" json:"unread_count"`
 	LastMsgPreview string     `gorm:"size:200" json:"last_msg_preview"`
 	LastMsgTime    *time.Time `json:"last_msg_time"`
+	ClearedSeq     int64      `gorm:"default:0" json:"cleared_seq"`
 	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
 

@@ -67,7 +67,7 @@ func main() {
 
 	// WebSocket hub
 	wsHandler := connect.NewWSHandler(logger)
-	hub := connect.NewHub(logger, cfg.WebSocket, wsHandler)
+	hub := connect.NewHub(logger, cfg.WebSocket, cfg.Server.AllowedOrigins, wsHandler)
 	hub.SetJSONHandler(wsHandler) // wsHandler handles both protobuf and JSON
 
 	// Services
@@ -273,7 +273,7 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
-	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.CORSMiddleware(cfg.Server.AllowedOrigins))
 
 	// Static file serving for uploads
 	r.Static("/uploads", "./uploads")
@@ -604,23 +604,7 @@ func handleAcceptFriendRequest(contactSvc *contact.Service, hub *connect.Hub, db
 			return
 		}
 
-		// Re-create user_conversations if the conversation still exists
-		var convID int64
-		db.Raw(`
-			SELECT cm1.conversation_id
-			FROM conversation_members cm1
-			JOIN conversation_members cm2 ON cm1.conversation_id = cm2.conversation_id
-			JOIN conversations c ON c.id = cm1.conversation_id
-			WHERE cm1.user_id = ? AND cm2.user_id = ? AND c.type = 1
-			LIMIT 1
-		`, uid, fr.FromUID).Scan(&convID)
-		if convID > 0 {
-			db.Create(&[]model.UserConversation{
-				{UserID: uid, ConversationID: convID},
-				{UserID: fr.FromUID, ConversationID: convID},
-			})
-		}
-		// Notify the requester that their friend request was accepted
+// Notify the requester that their friend request was accepted
 		var accepter model.User
 		db.First(&accepter, uid)
 		hub.SendJSONToUser(fr.FromUID, map[string]interface{}{
@@ -664,20 +648,7 @@ func handleDeleteFriend(db *gorm.DB, contactSvc *contact.Service, hub *connect.H
 			util.BadRequest(c, err.Error())
 			return
 		}
-		// Find and remove the single-chat conversation for both
-		var convID int64
-		db.Raw(`
-			SELECT cm1.conversation_id
-			FROM conversation_members cm1
-			JOIN conversation_members cm2 ON cm1.conversation_id = cm2.conversation_id
-			JOIN conversations c ON c.id = cm1.conversation_id
-			WHERE cm1.user_id = ? AND cm2.user_id = ? AND c.type = 1
-			LIMIT 1
-		`, uid, friendUID).Scan(&convID)
-		if convID > 0 {
-			db.Where("user_id IN ? AND conversation_id = ?", []int64{uid, friendUID}, convID).Delete(&model.UserConversation{})
-		}
-		// Notify both users via WS
+// Notify both users via WS
 		hub.SendJSONToUser(uid, map[string]interface{}{
 			"type": "friend_deleted",
 			"data": map[string]interface{}{"uid": friendUID},
@@ -756,12 +727,20 @@ func handleGetConversations(db *gorm.DB) gin.HandlerFunc {
 
 func handleGetMessages(db *gorm.DB, msgSvc *message.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		uid := c.GetInt64("uid")
 		var convID int64
 		fmt.Sscanf(c.Param("conversation_id"), "%d", &convID)
 		var lastSeq int64
 		fmt.Sscanf(c.DefaultQuery("last_seq", "0"), "%d", &lastSeq)
+
+		// Get user's cleared_seq so messages before it are hidden
+		var clearedSeq int64
+		db.Model(&model.UserConversation{}).
+			Where("user_id = ? AND conversation_id = ?", uid, convID).
+			Select("cleared_seq").Scan(&clearedSeq)
+
 		limit := 50
-		msgs, err := msgSvc.GetHistory(convID, lastSeq, limit)
+		msgs, err := msgSvc.GetHistory(convID, lastSeq, clearedSeq, limit)
 		if err != nil {
 			util.InternalError(c, err.Error())
 			return
@@ -857,12 +836,30 @@ func handleClearMessages(db *gorm.DB) gin.HandlerFunc {
 		uid := c.GetInt64("uid")
 		var convID int64
 		fmt.Sscanf(c.Param("conversation_id"), "%d", &convID)
-		db.Where("conversation_id = ?", convID).Delete(&model.Message{})
+
+		// Verify membership
+		var count int64
+		db.Model(&model.ConversationMember{}).
+			Where("conversation_id = ? AND user_id = ?", convID, uid).
+			Count(&count)
+		if count == 0 {
+			util.BadRequest(c, "你不在该会话中")
+			return
+		}
+
+		// Get current max seq so we can hide messages before this point
+		var maxSeq int64
+		db.Model(&model.Message{}).
+			Where("conversation_id = ?", convID).
+			Select("COALESCE(MAX(seq), 0)").Scan(&maxSeq)
+
+		// Only clear for this user — do NOT delete messages from DB
 		db.Model(&model.UserConversation{}).
 			Where("user_id = ? AND conversation_id = ?", uid, convID).
 			Updates(map[string]interface{}{
 				"unread_count":     0,
 				"last_msg_preview": "",
+				"cleared_seq":      maxSeq,
 			})
 		util.Success(c, nil)
 	}

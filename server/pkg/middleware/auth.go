@@ -60,9 +60,27 @@ func JWTAuth(publicKey []byte) gin.HandlerFunc {
 	}
 }
 
-func CORSMiddleware() gin.HandlerFunc {
+func CORSMiddleware(allowedOrigins []string) gin.HandlerFunc {
+	hasWildcard := false
+	for _, o := range allowedOrigins {
+		if o == "*" {
+			hasWildcard = true
+			break
+		}
+	}
+
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			if hasWildcard || util.IsOriginAllowed(allowedOrigins, origin) {
+				if hasWildcard {
+					c.Header("Access-Control-Allow-Origin", "*")
+				} else {
+					c.Header("Access-Control-Allow-Origin", origin)
+				}
+			}
+		}
+
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Authorization,Content-Type")
 		c.Header("Access-Control-Max-Age", "86400")
